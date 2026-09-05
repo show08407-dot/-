@@ -1,0 +1,16 @@
+{
+  "name": "搞笑文案抽取器 Pro",
+  "short_name": "文案抽取器",
+  "description": "编号文案导入、分类、规则校验与随机无重复抽取工具",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3f5f8",
+  "theme_color": "#111827",
+  "icons": [
+    {"src":"icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}

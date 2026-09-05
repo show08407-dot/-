@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<title>搞笑文案抽取器 Pro</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f5f8;color:#172033;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif}
+header{background:#111827;color:#fff;padding:17px 16px;position:sticky;top:0;z-index:10}header h1{margin:0;font-size:21px}header small{opacity:.72}
+main{max-width:820px;margin:auto;padding:14px}.card{background:#fff;border:1px solid #e4e7ec;border-radius:16px;padding:15px;margin-bottom:14px;box-shadow:0 2px 8px #00000009}
+h2{font-size:17px;margin:0 0 12px}h3{font-size:15px;margin:14px 0 8px}.muted{color:#667085;font-size:13px;line-height:1.55}
+button{border:0;border-radius:10px;padding:10px 13px;font:inherit;font-weight:650;background:#e5e7eb;color:#172033}button.primary{background:#2563eb;color:#fff}button.danger{background:#fee2e2;color:#991b1b}button.warn{background:#fff4d6;color:#8a5a00}button:disabled{opacity:.45}
+input,textarea,select{width:100%;border:1px solid #cfd5dd;border-radius:9px;padding:9px 10px;font:inherit;background:#fff;color:inherit}textarea{min-height:230px;resize:vertical;line-height:1.55}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{color:#667085;font-size:12px}.big{font-size:29px;font-weight:800;margin-top:2px}
+.result{min-height:160px;border:2px dashed #cbd5e1;border-radius:14px;padding:18px;display:flex;flex-direction:column;justify-content:center}.meta{color:#667085;font-size:13px;margin-bottom:8px}.copy{font-size:22px;font-weight:750;line-height:1.55;word-break:break-word}
+.status{margin-top:10px;padding:10px 11px;border-radius:9px;background:#f1f5f9;font-size:13px;line-height:1.5}.status.ok{background:#ecfdf3;color:#166534}.status.err{background:#fef2f2;color:#991b1b}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:0 0 auto}.rule{display:grid;grid-template-columns:90px 90px 1fr 42px;gap:7px;margin:7px 0}.rule input:nth-child(3){min-width:0}
+.range{display:grid;grid-template-columns:1fr 1fr;gap:8px}.preview{background:#f8fafc;border-radius:10px;padding:10px;margin-top:10px;font-size:13px;line-height:1.6}
+.badge{display:inline-block;padding:3px 8px;border-radius:99px;background:#eef2ff;color:#3730a3;font-size:12px;margin:2px 3px 2px 0}.assigned{background:#ecfdf3;color:#166534}
+.notice{border-left:4px solid #2563eb;padding:9px 11px;background:#eff6ff;border-radius:8px;font-size:13px;line-height:1.55}
+.lock{font-weight:700}.section-actions{margin-top:10px}
+@media(max-width:560px){.grid3{grid-template-columns:1fr 1fr}.rule{grid-template-columns:70px 70px 1fr 38px}.copy{font-size:20px}}
+</style>
+</head>
+<body>
+<header><h1>😂 搞笑文案抽取器 Pro</h1><small>编号导入 → 分类区间 → 抽取规则 → 校验 → 随机无重复抽取</small></header>
+<main>
+
+<section class="card">
+<h2>① 导入原始文案</h2>
+<div class="notice">你只需要提供“从小到大的编号 + 文案”。程序会自动按编号排序并生成内部文案库。<br>
+支持：<b>1. 文案</b>、<b>1、文案</b>、<b>1 文案</b>、<b>1-文案</b>、<b>1:文案</b> 等常见格式。</div>
+<textarea id="rawInput" placeholder="例如：
+1. 今天也是充满希望的一天，除了我的钱包。
+2. 我不是拖延，我是在给灵感留时间。
+3. 早睡早起很好，但手机不同意。"></textarea>
+<div class="row section-actions">
+<button class="primary" id="parseBtn">解析并进入分类</button>
+<button id="sampleBtn">载入100条测试数据</button>
+<button class="danger" id="clearAll">清空数据</button>
+</div>
+<div id="parseStatus" class="status">尚未解析。</div><div id="importRange" class="muted" style="margin-top:8px"></div>
+</section>
+
+<section class="card">
+<h2>② 文案分类设置</h2>
+<div class="muted">解析完成后，所有文案会按照原始编号由小到大排列。你只需要定义“编号范围属于什么类型”。范围可以连续，也可以分段，但每一条文案最终必须且只能属于一个类型。</div>
+<div id="categoryEditor" class="section-actions"></div>
+<div class="row">
+<button id="addCategory">＋添加分类区间</button>
+<button class="primary" id="saveCategory">保存分类</button>
+</div>
+<div id="categoryStatus" class="status">等待导入文案。</div>
+<div id="categoryPreview" class="preview"></div>
+</section>
+
+<section class="card">
+<h2>③ 抽取规则编辑</h2>
+<div class="notice"><b>规则解释：</b>例如“第1～20次必须抽完 B 类”，意思是 B 类文案在第20次结束前必须全部消耗完；B 在这20次中的具体出现位置仍然随机。程序会自动保护后续有截止要求的类别，避免随机抽取把规则抽死。</div>
+<div id="ruleEditor" class="section-actions"></div>
+<div class="row">
+<button id="addRule">＋添加抽取规则</button>
+<button class="primary" id="saveRule">保存抽取规则并完整校验</button>
+</div>
+<div id="ruleStatus" class="status">等待分类完成。</div>
+</section>
+
+<section class="card">
+<h2>④ 抽取控制</h2>
+<div class="grid3">
+<div><div class="stat">当前已消耗</div><div class="big" id="drawn">0</div></div>
+<div><div class="stat">剩余文案</div><div class="big" id="left">0</div></div>
+<div><div class="stat">总文案</div><div class="big" id="total">0</div></div>
+</div>
+<div class="result" id="result" style="margin-top:12px"><div class="meta">尚未开始</div><div class="copy">完成分类和抽取规则校验后才能开始</div></div>
+<div class="row section-actions">
+<button class="primary" id="drawBtn" disabled>下一条</button>
+<button id="pauseBtn" disabled>暂停并保存</button>
+<button id="nextRoundBtn" disabled>结束本轮并开始下一轮</button>
+</div>
+<div id="drawStatus" class="status">抽取锁定：请先完成文案分类和抽取规则校验。</div>
+</section>
+
+<section class="card">
+<h2>⑤ 当前库状态</h2>
+<div id="stats" class="muted">暂无数据</div>
+</section>
+
+<section class="card">
+<details>
+<summary><b>数据与规则说明</b></summary>
+<div class="muted" style="margin-top:10px">
+• 文案、分类、规则、当前轮次进度全部保存在本机。<br>
+• 每点击一次“下一条”，恰好消耗一条未抽取文案，并立即保存进度。<br>
+• 同一轮内绝不重复。<br>
+• 自动复制到剪切板；复制失败时仍然正常消耗文案。<br>
+• 修改文案库或分类后，程序会重新要求校验，未通过校验不能抽取。<br>
+• 抽取规则不是“固定顺序”，而是“截止次数约束”，所以满足约束的前提下仍然随机。
+</div>
+</details>
+</section>
+
+</main>
+<script>
+const K={RAW:"gcp_raw_v2",ITEMS:"gcp_items_v2",CATS:"gcp_cats_v2",RULES:"gcp_rules_v2",PROG:"gcp_prog_v2",HIST:"gcp_hist_v2"};
+let items=[], cats=[], rules=[], progress={drawn:[],round:1,ended:false}, history=[], valid=false;
+
+const SAMPLE = Array.from({length:100},(_,i)=>{
+ const n=i+1, t=["今天也是充满希望的一天，除了我的钱包。","我不是拖延，我是在给灵感留时间。","早睡早起很好，但手机不同意。","本来想认真生活，后来发现生活不太配合。","我的原则很简单：能躺着绝不坐着。"][i%5];
+ return n+". "+t+"（测试文案 "+n+"）";
+}).join("\\n");
+
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+
+function parseRaw(text){
+ const out=[], seen=new Set(), bad=[], gaps=[];
+ const lines=text.split(/\r?\n/);
+ lines.forEach((raw,idx)=>{
+   const line=raw.trim();
+   if(!line)return;
+   const m=line.match(/^(\d+)\s*(?:[.．、:：\-—\)）]|[ \t]+)\s*(.+)$/);
+   if(!m){bad.push({line:idx+1,text:line,reason:"无法识别为“编号+文案”"});return;}
+   const num=Number(m[1]), content=m[2].trim();
+   if(!Number.isSafeInteger(num)||num<=0){bad.push({line:idx+1,text:line,reason:"编号必须是正整数"});return;}
+   if(!content){bad.push({line:idx+1,text:line,reason:"文案内容为空"});return;}
+   if(seen.has(num)){bad.push({line:idx+1,text:line,reason:`编号 ${num} 重复`});return;}
+   seen.add(num); out.push({num,content,key:String(num)});
+ });
+ out.sort((a,b)=>a.num-b.num);
+ if(out.length) for(let n=out[0].num;n<=out[out.length-1].num;n++) if(!seen.has(n)) gaps.push(n);
+ return {out,bad,gaps};
+}
+function contiguousPreview(){
+ if(!items.length)return "暂无文案。";
+ return `编号范围：${items[0].num} ～ ${items[items.length-1].num}；共 ${items.length} 条。`;
+}
+function renderCatEditor(){
+ const host=document.getElementById("categoryEditor");host.innerHTML="";
+ if(!items.length){host.innerHTML="<div class='muted'>请先解析原始文案。</div>";return}
+ if(!cats.length) cats=[{from:items[0].num,to:items[items.length-1].num,type:"A"}];
+ cats.forEach((c,i)=>{
+   const d=document.createElement("div");d.className="rule";
+   d.innerHTML=`<input type="number" value="${c.from}" data-i="${i}" data-k="from" placeholder="起始编号">
+   <input type="number" value="${c.to}" data-i="${i}" data-k="to" placeholder="结束编号">
+   <input value="${esc(c.type)}" data-i="${i}" data-k="type" placeholder="类型，如 A">
+   <button class="danger" data-del="${i}">×</button>`;
+   host.appendChild(d);
+ });
+ host.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{cats.splice(+b.dataset.del,1);renderCatEditor()});
+}
+function readCats(){
+ const rows=[...document.querySelectorAll("#categoryEditor .rule")];
+ cats=rows.map(r=>({from:+r.querySelector('[data-k="from"]').value,to:+r.querySelector('[data-k="to"]').value,type:r.querySelector('[data-k="type"]').value.trim()})).filter(x=>x.type);
+}
+function validateCats(){
+ const errors=[];
+ if(!items.length)errors.push("还没有导入文案。");
+ if(!cats.length)errors.push("至少设置一个分类区间。");
+ const nums=new Set(items.map(x=>x.num));
+ const assigned=new Map();
+ cats.forEach((c,i)=>{
+   if(!Number.isInteger(c.from)||!Number.isInteger(c.to)||c.from>c.to)errors.push(`分类第${i+1}行的编号范围无效。`);
+   if(!c.type)errors.push(`分类第${i+1}行没有填写类型。`);
+   items.forEach(item=>{
+     const n=item.num;
+     if(n<c.from||n>c.to)return;
+     if(assigned.has(n))errors.push(`编号 ${n} 被重复分类：${assigned.get(n)} / ${c.type}`);
+     else assigned.set(n,c.type);
+   });
+ });
+ items.forEach(x=>{if(!assigned.has(x.num))errors.push(`编号 ${x.num} 尚未分类。`)});
+ const missing=[...assigned.keys()].filter(n=>!nums.has(n)); if(missing.length)errors.push("分类范围包含库中不存在的编号。");
+ if(errors.length)return {ok:false,errors};
+ return {ok:true};
+}
+function saveCats(){
+ readCats();const v=validateCats();const el=document.getElementById("categoryStatus");
+ if(!v.ok){valid=false;el.className="status err";el.innerHTML=v.errors.map(esc).join("<br>");refresh();return false}
+ cats.sort((a,b)=>a.from-b.from);save(K.CATS,cats);renderCatPreview();
+ el.className="status ok";el.textContent="✓ 分类设置正确：每一条文案均且仅属于一个类型。";
+ valid=false;refresh();return true;
+}
+function renderCatPreview(){
+ const map={};items.forEach(x=>{const c=cats.find(c=>x.num>=c.from&&x.num<=c.to);if(c)(map[c.type]??=[]).push(x.num)});
+ document.getElementById("categoryPreview").innerHTML=Object.entries(map).map(([t,a])=>`<span class="badge assigned">${esc(t)}：${a.length}条（${a[0]}～${a[a.length-1]}）</span>`).join("");
+}
+
+function renderRuleEditor(){
+ const host=document.getElementById("ruleEditor");host.innerHTML="";
+ if(!cats.length){host.innerHTML="<div class='muted'>请先保存分类。</div>";return}
+ if(!rules.length)rules=[{start:1,end:Math.min(20,items.length),types:[cats[0].type]}];
+ rules.forEach((r,i)=>{
+   const d=document.createElement("div");d.className="rule";
+   d.innerHTML=`<input type="number" min="1" value="${r.start}" data-i="${i}" data-k="start">
+   <input type="number" min="1" value="${r.end}" data-i="${i}" data-k="end">
+   <input value="${esc(r.types.join(","))}" data-i="${i}" data-k="types" placeholder="必须完成的类型，如 B 或 B,C">
+   <button class="danger" data-del="${i}">×</button>`;
+   host.appendChild(d);
+ });
+ host.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{rules.splice(+b.dataset.del,1);renderRuleEditor()});
+}
+function readRules(){
+ const rows=[...document.querySelectorAll("#ruleEditor .rule")];
+ rules=rows.map(r=>({
+  start:+r.querySelector('[data-k="start"]').value,
+  end:+r.querySelector('[data-k="end"]').value,
+  types:r.querySelector('[data-k="types"]').value.split(",").map(x=>x.trim()).filter(Boolean)
+ })).filter(x=>x.types.length);
+}
+function categoryCounts(){
+ const m={};items.forEach(x=>{const c=cats.find(c=>x.num>=c.from&&x.num<=c.to);if(c)m[c.type]=(m[c.type]||0)+1});return m;
+}
+/*
+  规则校验核心：
+  每个类别的“最早截止次数”形成 deadline。
+  在任意 deadline d 之前，所有 deadline<=d 的类别文案总数不能超过 d。
+  同时单类数量不能超过自己的 deadline。
+  这是因为每次只能消耗一条文案；满足这个条件后，运行时用“截止期保护”
+  避免随机选择未来必须完成的类别而导致后面无解。
+*/
+function validateRules(){
+ const errors=[], counts=categoryCounts(), known=new Set(Object.keys(counts));
+ const deadlines={};
+ rules.forEach((r,i)=>{
+  if(!Number.isInteger(r.start)||!Number.isInteger(r.end)||r.start<1||r.end<r.start)errors.push(`规则第${i+1}行：抽取次数范围无效。`);
+  if(r.end>items.length)errors.push(`规则第${i+1}行：结束次数 ${r.end} 超过总文案数 ${items.length}。`);
+  r.types.forEach(t=>{if(!known.has(t))errors.push(`规则第${i+1}行：类型 ${t} 不存在。`)});
+  r.types.forEach(t=>{if(known.has(t))deadlines[t]=Math.min(deadlines[t]??Infinity,r.end)});
+ });
+ Object.entries(deadlines).forEach(([t,d])=>{
+   if(counts[t]>d)errors.push(`类型 ${t} 有 ${counts[t]} 条，但要求在第 ${d} 次前抽完，必然无法完成。`);
+ });
+ const ds=[...new Set(Object.values(deadlines))].sort((a,b)=>a-b);
+ ds.forEach(d=>{
+   const need=Object.entries(deadlines).filter(([t,x])=>x<=d).reduce((s,[t])=>s+counts[t],0);
+   if(need>d)errors.push(`规则冲突：截至第 ${d} 次，必须完成的类别共有 ${need} 条，但最多只能抽 ${d} 条。`);
+ });
+ // 同一规则内部不允许出现超出本阶段明显不可能的情况
+ rules.forEach((r,i)=>{
+   const need=r.types.reduce((s,t)=>s+(counts[t]||0),0);
+   const alreadyEarlier=r.types.reduce((s,t)=>s+0,0);
+   if(r.start>1 && need>r.end){} // earlier draws may have consumed them; not an error
+ });
+ return {ok:errors.length===0,errors,deadlines};
+}
+function saveRules(){
+ readRules();const v=validateRules(),el=document.getElementById("ruleStatus");
+ if(!v.ok){valid=false;el.className="status err";el.innerHTML=v.errors.map(esc).join("<br>");refresh();return false}
+ save(K.RULES,rules);valid=true;el.className="status ok";el.innerHTML="✓ 抽取规则无矛盾，可以开始抽取。"+(Object.keys(v.deadlines).length?`<br>截止要求：${Object.entries(v.deadlines).map(([t,d])=>`${esc(t)}→第${d}次`).join("；")}`:"");
+ refresh();return true;
+}
+function remaining(){const set=new Set(progress.drawn);return items.filter(x=>!set.has(x.key))}
+function deadlines(){
+ const d={};rules.forEach(r=>r.types.forEach(t=>{d[t]=Math.min(d[t]??Infinity,r.end)}));return d;
+}
+function candidatePool(){
+ const rem=remaining(), n=progress.drawn.length+1, d=deadlines();
+ // 当前时点的可用截止：若某类别剩余数量恰好等于它在截止日前可用的槽位，
+ // 必须从该类别抽取，防止随机抽取把未来规则变成无解。
+ const urgent=new Set();
+ for(const [t,deadline] of Object.entries(d)){
+   const left=rem.filter(x=>x.type===t).length;
+   if(!left)continue;
+   const slots=deadline-progress.drawn.length;
+   if(left>=slots)urgent.add(t);
+ }
+ if(urgent.size)return rem.filter(x=>urgent.has(x.type));
+ return rem;
+}
+async function copyText(text){
+ try{
+  if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);return true}
+  const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";
+  document.body.appendChild(ta);ta.select();const ok=document.execCommand("copy");ta.remove();return ok;
+ }catch(e){return false}
+}
+function draw(){
+ if(!valid||!remaining().length)return;
+ const pool=candidatePool();
+ if(!pool.length){document.getElementById("drawStatus").className="status err";document.getElementById("drawStatus").textContent="规则运行时检测失败：没有可合法抽取的文案，请检查规则。";return}
+ const item=pool[Math.floor(Math.random()*pool.length)];
+ progress.drawn.push(item.key);progress.ended=false;save(K.PROG,progress);
+ const rec={time:new Date().toLocaleString(),round:progress.round,seq:progress.drawn.length,num:item.num,type:item.type,content:item.content};
+ history.push(rec);save(K.HIST,history);
+ document.getElementById("result").innerHTML=`<div class="meta">第 ${progress.drawn.length} 次 · ${esc(item.type)} · 编号 ${item.num}</div><div class="copy">${esc(item.content)}</div>`;
+ copyText(item.content).then(ok=>{
+  const s=document.getElementById("drawStatus");s.className="status "+(ok?"ok":"");
+  s.textContent=ok?"✓ 已消耗 1 条，并已复制到剪切板。":"已消耗 1 条，但自动复制失败，请手动复制当前文案。";
+  refresh();
+ });
+ refresh();
+}
+function refresh(){
+ const rem=remaining();drawn.textContent=progress.drawn.length;left.textContent=rem.length;total.textContent=items.length;
+ const ir=document.getElementById("importRange");
+ if(ir) ir.textContent=items.length ? `当前编号范围：${items[0].num} ～ ${items[items.length-1].num}；共 ${items.length} 条` : "";
+ drawBtn.disabled=!(valid&&rem.length);
+ pauseBtn.disabled=!items.length||!progress.drawn.length;
+ nextRoundBtn.disabled=!items.length;
+ const map={};items.forEach(x=>{map[x.type]=(map[x.type]||0)+1});
+ stats.innerHTML=Object.entries(map).map(([t,n])=>{const d=items.filter(x=>x.type===t&&progress.drawn.includes(x.key)).length;return `<span class="badge">${esc(t)}：${d}/${n}</span>`}).join("")||"暂无分类";
+ if(!rem.length&&items.length){drawBtn.disabled=true;drawStatus.className="status ok";drawStatus.textContent="🎉 本轮全部文案已经消耗完毕。";}
+}
+function pause(){progress.ended=true;save(K.PROG,progress);drawStatus.className="status";drawStatus.textContent="本轮已暂停，进度已保存。下次打开可继续。"}
+function nextRound(){
+ if(!confirm("确定结束当前轮并开始下一轮吗？当前轮历史记录会保留。"))return;
+ progress={drawn:[],round:(progress.round||1)+1,ended:false};save(K.PROG,progress);
+ result.innerHTML="<div class='meta'>新一轮</div><div class='copy'>点击“下一条”开始</div>";refresh();
+}
+
+document.getElementById("sampleBtn").onclick=()=>{rawInput.value=SAMPLE;document.getElementById("parseBtn").click()};
+document.getElementById("parseBtn").onclick=()=>{
+ const r=parseRaw(rawInput.value),el=parseStatus;
+ if(!r.out.length){
+   items=[];valid=false;el.className="status err";el.textContent="解析失败：没有识别到任何“编号+文案”。";refresh();return;
+ }
+ if(r.bad.length){
+   items=[];valid=false;el.className="status err";
+   const details=r.bad.slice(0,10).map(x=>`第${x.line}行：${esc(x.reason)}<br>　${esc(x.text)}`).join("<br>");
+   el.innerHTML=`<b>解析失败，共 ${r.bad.length} 个问题。</b><br>${details}${r.bad.length>10?"<br>……其余错误请继续检查。":""}`;
+   refresh();return;
+ }
+ items=r.out;save(K.RAW,rawInput.value);save(K.ITEMS,items);
+ cats=[];rules=[];save(K.CATS,cats);save(K.RULES,rules);
+ progress={drawn:[],round:progress.round||1,ended:false};save(K.PROG,progress);
+ valid=false;el.className="status ok";
+ let msg=`✓ 成功解析 ${items.length} 条，已按编号由小到大排序。`;
+ if(r.gaps.length) msg+=`<br>⚠ 检测到编号断档：${r.gaps.slice(0,30).join("、")}${r.gaps.length>30?"……":""}。这不会阻止继续，但请确认是否有意留空。`;
+ el.innerHTML=msg;
+ renderCatEditor();renderRuleEditor();
+ categoryStatus.className="status";categoryStatus.textContent="请定义分类区间。全部文案必须且只能属于一个类型。";
+ ruleStatus.className="status";ruleStatus.textContent="等待分类完成。";
+ refresh();
+};
+document.getElementById("addCategory").onclick=()=>{if(!items.length)return;cats.push({from:items[0].num,to:items[items.length-1].num,type:"新类"});renderCatEditor()};
+document.getElementById("saveCategory").onclick=()=>{if(saveCats()){rules=[];renderRuleEditor();document.getElementById("ruleStatus").textContent="分类已保存，请设置抽取规则。"}};
+document.getElementById("addRule").onclick=()=>{if(!cats.length)return;rules.push({start:1,end:Math.min(20,items.length),types:[cats[0].type]});renderRuleEditor()};
+document.getElementById("saveRule").onclick=saveRules;
+document.getElementById("drawBtn").onclick=draw;
+document.getElementById("pauseBtn").onclick=pause;
+document.getElementById("nextRoundBtn").onclick=nextRound;
+document.getElementById("clearAll").onclick=()=>{
+ if(confirm("确定清除本机全部文案、分类、规则、进度和历史记录吗？")){Object.values(K).forEach(k=>localStorage.removeItem(k));location.reload()}
+};
+
+rawInput.value=load(K.RAW,"");
+items=load(K.ITEMS,[]);
+cats=load(K.CATS,[]);
+rules=load(K.RULES,[]);
+progress=load(K.PROG,{drawn:[],round:1,ended:false});
+history=load(K.HIST,[]);
+if(items.length){rawInput.value=rawInput.value||items.map(x=>`${x.num}. ${x.content}`).join("\\n");renderCatEditor();renderCatPreview();renderRuleEditor();document.getElementById("parseStatus").textContent=`已恢复本机文案库：${items.length} 条。`;}
+refresh();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.error));
+}
+</script>
+</body>
+</html>
